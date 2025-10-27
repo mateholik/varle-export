@@ -158,7 +158,7 @@ class Varle_Export_XML_Generator {
         throw new Exception(
             sprintf(
                 'Forced storage method failed: %s',
-                $method_key
+                esc_html($method_key)
             )
         );
     }

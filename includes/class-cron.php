@@ -356,8 +356,8 @@ class Varle_Export_Cron {
         
         $this->generate_xml();
         
-        /* translators: %s: generation time. */
         $completion_message = sprintf(
+            /* translators: %s: generation time. */
             __('Varle XML generation completed at %s', 'varle-export'),
             current_time('Y-m-d H:i:s')
         );

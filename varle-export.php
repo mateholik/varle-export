@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Varle.lt Product Export
+ * Plugin Name: Varle.lt Product Export XML link
  * Plugin URI: https://matesklubas.lt
  * Description: Export WooCommerce products to Varle.lt XML format
  * Version: 1.0.0

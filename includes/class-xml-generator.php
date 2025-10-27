@@ -1,7 +1,7 @@
 <?php
 /**
- * Localhost-Friendly XML Generator Class
- * Prioritizes database storage for XAMPP/local development
+ * Enhanced XML Generator Class
+ * Fixed to prioritize uploads directory and ensure correct URL generation
  */
 
 if (!defined('ABSPATH')) {
@@ -17,7 +17,7 @@ class Varle_Export_XML_Generator {
     }
     
     /**
-     * Generate and save XML file with localhost-friendly approach
+     * Generate and save XML file with enhanced uploads directory priority
      */
     public function generate_xml_file() {
         try {
@@ -28,12 +28,10 @@ class Varle_Export_XML_Generator {
                 return $this->use_forced_storage_method($xml_content);
             }
             
-            // Try storage methods in order of preference (prioritize file storage)
+            // ENHANCED: Prioritize uploads directory with better error handling
             $methods = array(
-                'uploads_directory',    // First choice - actual file
-                'plugin_directory',     // Second choice - plugin folder
-                'root_directory',       // Third choice - root directory
-                'database_storage'      // Last resort - database
+                'uploads_directory',    // First choice - uploads/varle-export/
+                'database_storage'      // Fallback - database storage
             );
             
             foreach ($methods as $method) {
@@ -88,7 +86,7 @@ class Varle_Export_XML_Generator {
     }
     
     /**
-     * Store XML in database (most reliable for localhost)
+     * Store XML in database (reliable fallback)
      */
     private function store_in_database($xml_content) {
         try {
@@ -114,7 +112,7 @@ class Varle_Export_XML_Generator {
     }
     
     /**
-     * Store XML in uploads directory
+     * Store XML in uploads directory - ENHANCED
      */
     private function store_in_uploads($xml_content) {
         try {
@@ -126,7 +124,7 @@ class Varle_Export_XML_Generator {
             
             $filename = $this->get_xml_filename();
             
-            // Create varle-export subdirectory
+            // ENHANCED: Always use varle-export subdirectory for clean organization
             $varle_dir = $upload_dir['basedir'] . '/varle-export';
             $varle_url = $upload_dir['baseurl'] . '/varle-export';
             
@@ -135,24 +133,46 @@ class Varle_Export_XML_Generator {
             
             // Create directory if it doesn't exist
             if (!file_exists($varle_dir)) {
-                wp_mkdir_p($varle_dir);
+                $mkdir_result = wp_mkdir_p($varle_dir);
+                if (!$mkdir_result) {
+                    throw new Exception('Could not create varle-export directory: ' . $varle_dir);
+                }
+                error_log('Varle XML: Created directory ' . $varle_dir);
             }
             
-            // Try to fix permissions if needed
+            // Enhanced permission handling
             if (!is_writable($varle_dir)) {
-                @chmod($varle_dir, 0777);
+                $chmod_result = @chmod($varle_dir, 0755);
+                if (!$chmod_result) {
+                    $chmod_result = @chmod($varle_dir, 0777);
+                }
+                
+                if (!is_writable($varle_dir)) {
+                    throw new Exception('Varle directory not writable after chmod attempts: ' . $varle_dir);
+                }
+                error_log('Varle XML: Fixed permissions for ' . $varle_dir);
             }
             
-            if (!is_writable($varle_dir)) {
-                throw new Exception('Varle directory not writable: ' . $varle_dir);
-            }
-            
-            $result = file_put_contents($file_path, $xml_content);
+            // Write the file
+            $result = file_put_contents($file_path, $xml_content, LOCK_EX);
             if ($result === false) {
-                throw new Exception('Failed to write file to varle-export directory');
+                throw new Exception('Failed to write file to varle-export directory: ' . $file_path);
             }
             
-            error_log('Varle XML stored in varle-export directory: ' . $file_path . ' (' . $result . ' bytes)');
+            // Verify file was written correctly
+            if (!file_exists($file_path)) {
+                throw new Exception('File was not created: ' . $file_path);
+            }
+            
+            $actual_size = filesize($file_path);
+            if ($actual_size !== strlen($xml_content)) {
+                error_log('Varle XML: Size mismatch - expected ' . strlen($xml_content) . ', got ' . $actual_size);
+            }
+            
+            // Set proper file permissions
+            @chmod($file_path, 0644);
+            
+            error_log('Varle XML stored in varle-export directory successfully: ' . $file_path . ' (' . $result . ' bytes)');
             
             return array(
                 'path' => $file_path,
@@ -162,44 +182,12 @@ class Varle_Export_XML_Generator {
             
         } catch (Exception $e) {
             error_log('Varle-export storage failed: ' . $e->getMessage());
-            
-            // Fallback to direct uploads directory
-            try {
-                $upload_dir = wp_upload_dir();
-                $filename = $this->get_xml_filename();
-                $file_path = $upload_dir['basedir'] . '/' . $filename;
-                $file_url = $upload_dir['baseurl'] . '/' . $filename;
-                
-                if (!is_writable($upload_dir['basedir'])) {
-                    @chmod($upload_dir['basedir'], 0777);
-                }
-                
-                if (!is_writable($upload_dir['basedir'])) {
-                    throw new Exception('Uploads directory not writable: ' . $upload_dir['basedir']);
-                }
-                
-                $result = file_put_contents($file_path, $xml_content);
-                if ($result === false) {
-                    throw new Exception('Failed to write file to uploads directory');
-                }
-                
-                error_log('Varle XML stored in uploads directory: ' . $file_path . ' (' . $result . ' bytes)');
-                
-                return array(
-                    'path' => $file_path,
-                    'url' => $file_url,
-                    'size' => $result
-                );
-                
-            } catch (Exception $fallback_e) {
-                error_log('Uploads fallback storage failed: ' . $fallback_e->getMessage());
-                return false;
-            }
+            return false;
         }
     }
     
     /**
-     * Store XML in root directory
+     * Store XML in root directory (fallback)
      */
     private function store_in_root($xml_content) {
         try {
@@ -211,10 +199,12 @@ class Varle_Export_XML_Generator {
                 throw new Exception('Root directory not writable: ' . ABSPATH);
             }
             
-            $result = file_put_contents($file_path, $xml_content);
+            $result = file_put_contents($file_path, $xml_content, LOCK_EX);
             if ($result === false) {
                 throw new Exception('Failed to write file to root directory');
             }
+            
+            @chmod($file_path, 0644);
             
             error_log('Varle XML stored in root directory: ' . $file_path . ' (' . $result . ' bytes)');
             
@@ -231,15 +221,19 @@ class Varle_Export_XML_Generator {
     }
     
     /**
-     * Update success options
+     * Update success options - ENHANCED
      */
     private function update_success_options($result, $method) {
         update_option('varle_export_last_generated', current_time('mysql'));
         update_option('varle_export_file_url', $result['url']);
         update_option('varle_export_file_path', isset($result['path']) ? $result['path'] : '');
         update_option('varle_export_storage_method', $method);
+        update_option('varle_export_file_size', $result['size']);
         
-        error_log('Varle XML generation successful using ' . $method . ' - URL: ' . $result['url']);
+        // Clear any previous errors
+        delete_option('varle_export_last_error');
+        
+        error_log('Varle XML generation successful using ' . $method . ' - URL: ' . $result['url'] . ' - Size: ' . $result['size'] . ' bytes');
     }
     
     /**
@@ -250,40 +244,54 @@ class Varle_Export_XML_Generator {
     }
     
     /**
-     * Generate XML content (your existing implementation)
+     * Generate XML content (enhanced with better error handling)
      */
     public function generate_xml_content() {
-        $xml = new DOMDocument('1.0', 'UTF-8');
-        $xml->formatOutput = true;
-        
-        // Add comment
-        $xml->appendChild($xml->createComment(' Pastaba: koduotė turi būti UTF-8 '));
-        
-        // Create root element
-        $root = $xml->createElement('root');
-        $xml->appendChild($root);
-        
-        // Add script elements (as in Varle example)
-        for ($i = 0; $i < 3; $i++) {
-            $script = $xml->createElement('script');
-            if ($i === 0) {
-                $script->setAttribute('id', 'eppiocemhmnlbhjplcgkofciiegomcon');
+        try {
+            $xml = new DOMDocument('1.0', 'UTF-8');
+            $xml->formatOutput = true;
+            
+            // Add comment
+            $xml->appendChild($xml->createComment(' Pastaba: kodavimas turi būti UTF-8 '));
+            
+            // Create root element
+            $root = $xml->createElement('root');
+            $xml->appendChild($root);
+            
+            // Add script elements (as in Varle example)
+            for ($i = 0; $i < 3; $i++) {
+                $script = $xml->createElement('script');
+                if ($i === 0) {
+                    $script->setAttribute('id', 'eppiocemhmnlbhjplcgkofciiegomcon');
+                }
+                $root->appendChild($script);
             }
-            $root->appendChild($script);
+            
+            // Create products container
+            $products = $xml->createElement('products');
+            $root->appendChild($products);
+            
+            // Add products
+            $product_count = $this->add_products_to_xml($xml, $products);
+            
+            $xml_content = $xml->saveXML();
+            
+            if (empty($xml_content)) {
+                throw new Exception('Generated XML content is empty');
+            }
+            
+            error_log('Varle XML content generated successfully - ' . $product_count . ' products, ' . strlen($xml_content) . ' bytes');
+            
+            return $xml_content;
+            
+        } catch (Exception $e) {
+            error_log('XML content generation failed: ' . $e->getMessage());
+            throw $e;
         }
-        
-        // Create products container
-        $products = $xml->createElement('products');
-        $root->appendChild($products);
-        
-        // Add products
-        $this->add_products_to_xml($xml, $products);
-        
-        return $xml->saveXML();
     }
     
     /**
-     * Add products to XML
+     * Add products to XML - enhanced with count return
      */
     private function add_products_to_xml($xml, $products_element) {
         $args = array(
@@ -299,6 +307,7 @@ class Varle_Export_XML_Generator {
         );
         
         $product_query = new WP_Query($args);
+        $product_count = 0;
         
         if ($product_query->have_posts()) {
             while ($product_query->have_posts()) {
@@ -312,10 +321,13 @@ class Varle_Export_XML_Generator {
                 }
                 
                 $this->add_single_product($xml, $products_element, $product);
+                $product_count++;
             }
         }
         
         wp_reset_postdata();
+        
+        return $product_count;
     }
     
     /**

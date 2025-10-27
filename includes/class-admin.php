@@ -81,6 +81,14 @@ class Varle_Export_Admin {
             'varle_export_settings',
             'varle_export_general'
         );
+        
+        add_settings_field(
+            'auto_generate',
+            __('Auto Generate XML', 'varle-export'),
+            array($this, 'auto_generate_callback'),
+            'varle_export_settings',
+            'varle_export_general'
+        );
     }
     
     /**
@@ -102,10 +110,10 @@ class Varle_Export_Admin {
         wp_localize_script('varle-export-admin', 'varle_ajax', array(
             'ajax_url' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('varle_export_nonce'),
-            'generating_text' => __('Generating XML...', 'varle-export'),
-            'success_text' => __('XML generated successfully!', 'varle-export'),
-            'error_text' => __('Error generating XML', 'varle-export'),
-            'button_text' => __('Generate XML File', 'varle-export')
+            'generating_text' => __('Regenerating XML...', 'varle-export'),
+            'success_text' => __('XML regenerated successfully!', 'varle-export'),
+            'error_text' => __('Error regenerating XML', 'varle-export'),
+            'button_text' => __('Regenerate XML File', 'varle-export')
         ));
         
         wp_enqueue_style(
@@ -178,7 +186,7 @@ class Varle_Export_Admin {
                         
                         <div class="varle-actions">
                             <button type="button" id="generate-xml" class="button button-primary">
-                                <?php _e('Generate XML File', 'varle-export'); ?>
+                                <?php _e('Regenerate XML File', 'varle-export'); ?>
                             </button>
                             
                             <button type="button" id="download-xml" class="button">
@@ -237,10 +245,20 @@ class Varle_Export_Admin {
                     <div class="inside">
                         <ol>
                             <li><?php _e('Configure the settings above.', 'varle-export'); ?></li>
-                            <li><?php _e('Click "Generate XML File" to create the export file.', 'varle-export'); ?></li>
+                            <li><?php _e('Click "Regenerate XML File" to create the export file.', 'varle-export'); ?></li>
                             <li><?php _e('Copy the XML file URL from the File Status section.', 'varle-export'); ?></li>
                             <li><?php _e('Provide this URL to Varle.lt in their import system.', 'varle-export'); ?></li>
                         </ol>
+                        
+                        <?php 
+                        $auto_generate = isset($settings['auto_generate']) ? $settings['auto_generate'] : 'yes';
+                        if ($auto_generate === 'yes'): 
+                        ?>
+                        <div class="notice notice-info inline">
+                            <p><strong><?php _e('Auto-Generation Enabled:', 'varle-export'); ?></strong> 
+                            <?php _e('XML file will be automatically updated when products are added, modified, or stock changes.', 'varle-export'); ?></p>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
                 
@@ -275,9 +293,9 @@ class Varle_Export_Admin {
         $diagnostics = array(
             array(
                 'name' => __('WordPress Uploads Directory', 'varle-export'),
-                'path' => $upload_dir['basedir'] . '/' . $filename,
+                'path' => $upload_dir['basedir'] . '/varle-export/' . $filename,
                 'writable' => !$upload_dir['error'] && is_writable($upload_dir['basedir']),
-                'description' => __('Most reliable method', 'varle-export')
+                'description' => __('Most reliable method (Recommended)', 'varle-export')
             ),
             array(
                 'name' => __('Plugin Directory', 'varle-export'),
@@ -356,6 +374,17 @@ class Varle_Export_Admin {
         $value = isset($settings['xml_file_name']) ? $settings['xml_file_name'] : 'products.xml';
         echo '<input type="text" name="varle_export_settings[xml_file_name]" value="' . esc_attr($value) . '" />';
         echo '<p class="description">' . __('Name of the XML file', 'varle-export') . '</p>';
+    }
+    
+    public function auto_generate_callback() {
+        $settings = get_option('varle_export_settings');
+        $value = isset($settings['auto_generate']) ? $settings['auto_generate'] : 'yes';
+        
+        echo '<select name="varle_export_settings[auto_generate]">';
+        echo '<option value="yes"' . selected($value, 'yes', false) . '>' . __('Yes', 'varle-export') . '</option>';
+        echo '<option value="no"' . selected($value, 'no', false) . '>' . __('No', 'varle-export') . '</option>';
+        echo '</select>';
+        echo '<p class="description">' . __('Automatically regenerate XML when products are updated', 'varle-export') . '</p>';
     }
     
     /**

@@ -342,26 +342,25 @@ class Varle_Export_Cron {
      * Handle manual cron execution
      */
     public function handle_manual_cron() {
-        if (!isset($_GET['action']) || $_GET['action'] !== 'varle_manual_cron') {
+        $action = isset($_GET['action']) ? sanitize_key(wp_unslash($_GET['action'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Access controlled via hashed key.
+        if ('varle_manual_cron' !== $action) {
             return;
         }
         
-        if (!isset($_GET['key']) || $_GET['key'] !== wp_hash('varle_manual_cron' . NONCE_SALT)) {
+        $key = isset($_GET['key']) ? sanitize_text_field(wp_unslash($_GET['key'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Custom hash provides request validation.
+        if ($key !== wp_hash('varle_manual_cron' . NONCE_SALT)) {
             wp_die(esc_html__('Invalid key', 'varle-export'));
         }
         
         $this->generate_xml();
         
-        printf(
-            '%s',
-            esc_html(
-                /* translators: %s: generation time. */
-                sprintf(
-                    __('Varle XML generation completed at %s', 'varle-export'),
-                    current_time('Y-m-d H:i:s')
-                )
-            )
+        /* translators: %s: generation time. */
+        $completion_message = sprintf(
+            __('Varle XML generation completed at %s', 'varle-export'),
+            current_time('Y-m-d H:i:s')
         );
+
+        printf('%s', esc_html($completion_message));
         exit;
     }
     

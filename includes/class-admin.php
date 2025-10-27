@@ -363,7 +363,7 @@ class Varle_Export_Admin {
         
         foreach ($diagnostics as $diagnostic) {
             $status_class = $diagnostic['writable'] ? 'available' : 'unavailable';
-            $status_text = $diagnostic['writable'] ? esc_html__('✓ Available', 'varle-export') : esc_html__('✗ Not Available', 'varle-export');
+            $status_text = $diagnostic['writable'] ? __('✓ Available', 'varle-export') : __('✗ Not Available', 'varle-export');
             
             echo '<tr>';
             echo '<td><strong>' . esc_html($diagnostic['name']) . '</strong><br>';
@@ -371,7 +371,7 @@ class Varle_Export_Admin {
             printf(
                 '<td><span class="status-%s">%s</span></td>',
                 esc_attr($status_class),
-                $status_text
+                esc_html($status_text)
             );
             echo '<td>' . esc_html($diagnostic['description']) . '</td>';
             echo '</tr>';
@@ -409,13 +409,9 @@ class Varle_Export_Admin {
         $attributes = wc_get_attribute_taxonomies();
         foreach ($attributes as $attribute) {
             $attr_name = 'pa_' . $attribute->attribute_name;
-            $selected = selected($value, $attr_name, false);
-            printf(
-                '<option value="%1$s" %2$s>%3$s</option>',
-                esc_attr($attr_name),
-                $selected,
-                esc_html($attribute->attribute_label)
-            );
+            echo '<option value="' . esc_attr($attr_name) . '"';
+            selected($value, $attr_name);
+            echo '>' . esc_html($attribute->attribute_label) . '</option>';
         }
         
         echo '</select>';
@@ -503,17 +499,21 @@ class Varle_Export_Admin {
         $fields = array('_varle_group', '_varle_delivery_text', '_varle_warranty', '_varle_with_gift', '_varle_exclude');
         
         foreach ($fields as $field) {
-            if (isset($_POST[$field])) {
-                $value = wp_unslash($_POST[$field]);
-                if (is_array($value)) {
-                    $value = array_map('sanitize_text_field', $value);
-                } else {
-                    $value = sanitize_text_field($value);
-                }
-                update_post_meta($post_id, $field, $value);
-            } else {
+            if (!isset($_POST[$field])) {
                 delete_post_meta($post_id, $field);
+                continue;
             }
+
+            // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Value sanitized immediately after fetching.
+            $raw_value = wp_unslash($_POST[$field]);
+
+            if (is_array($raw_value)) {
+                $value = array_map('sanitize_text_field', $raw_value);
+            } else {
+                $value = sanitize_text_field($raw_value);
+            }
+
+            update_post_meta($post_id, $field, $value);
         }
     }
     
@@ -538,6 +538,7 @@ class Varle_Export_Admin {
         if (is_wp_error($response)) {
             wp_send_json_error(
                 sprintf(
+                    /* translators: %s: error message returned when accessing XML URL. */
                     esc_html__('URL not accessible: %s', 'varle-export'),
                     esc_html($response->get_error_message())
                 )
@@ -551,6 +552,7 @@ class Varle_Export_Admin {
 
         wp_send_json_error(
             sprintf(
+                /* translators: %d: HTTP status code returned when checking XML URL. */
                 esc_html__('URL returned HTTP %d', 'varle-export'),
                 (int) $response_code
             )

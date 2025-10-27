@@ -147,14 +147,20 @@ class Varle_Export_XML_Generator {
      */
     private function use_forced_storage_method($xml_content) {
         $method = VARLE_FORCE_STORAGE_METHOD;
-        $result = $this->try_storage_method($method, $xml_content);
+        $method_key = sanitize_key($method);
+        $result = $this->try_storage_method($method_key, $xml_content);
         
         if ($result) {
-            $this->update_success_options($result, $method);
+            $this->update_success_options($result, $method_key);
             return true;
         }
         
-        throw new Exception('Forced storage method failed: ' . $method);
+        throw new Exception(
+            sprintf(
+                'Forced storage method failed: %s',
+                $method_key
+            )
+        );
     }
     
     /**

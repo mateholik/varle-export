@@ -1,11 +1,11 @@
 <?php
 /**
- * Plugin Name: Varle.lt XML format
- * Plugin URI: https://vladis.lt
+ * Plugin Name: Varle.lt Product Export
+ * Plugin URI: https://matesklubas.lt
  * Description: Export WooCommerce products to Varle.lt XML format
  * Version: 1.0.0
  * Author: Vladis
- * Author URI: https://vladis.lt
+ * Author URI: https://matesklubas.lt
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: varle-export

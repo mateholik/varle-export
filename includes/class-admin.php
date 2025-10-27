@@ -89,6 +89,14 @@ class Varle_Export_Admin {
             'varle_export_settings',
             'varle_export_general'
         );
+        
+        add_settings_field(
+            'error_notifications',
+            __('Email Error Notifications', 'varle-export'),
+            array($this, 'error_notifications_callback'),
+            'varle_export_settings',
+            'varle_export_general'
+        );
     }
 
     /**
@@ -157,7 +165,17 @@ class Varle_Export_Admin {
             'generating_text' => __('Regenerating XML...', 'varle-export'),
             'success_text' => __('XML regenerated successfully!', 'varle-export'),
             'error_text' => __('Error regenerating XML', 'varle-export'),
-            'button_text' => __('Regenerate XML File', 'varle-export')
+            'button_text' => __('Regenerate XML File', 'varle-export'),
+            'download_started_text' => __('Download started...', 'varle-export'),
+            'testing_text' => __('Testing...', 'varle-export'),
+            'test_success_text' => __('File is accessible!', 'varle-export'),
+            'test_failure_text' => __('File not accessible:', 'varle-export'),
+            'timeout_notice_text' => __('Generation timed out. This may happen with large product catalogs. Please try again.', 'varle-export'),
+            'saving_text' => __('Saving...', 'varle-export'),
+            'copy_success_text' => __('URL copied to clipboard!', 'varle-export'),
+            'copy_fail_text' => __('Copy failed. Please copy manually:', 'varle-export'),
+            'copy_unsupported_text' => __('Copy not supported. Please copy manually:', 'varle-export'),
+            'form_error_text' => __('Please fix the form errors before saving', 'varle-export')
         ));
         
         wp_enqueue_style(
@@ -235,6 +253,10 @@ class Varle_Export_Admin {
                             
                             <button type="button" id="download-xml" class="button">
                                 <?php esc_html_e('Download XML', 'varle-export'); ?>
+                            </button>
+                            
+                            <button type="button" id="test-accessibility" class="button">
+                                <?php esc_html_e('Test File Accessibility', 'varle-export'); ?>
                             </button>
                             
                             <?php if ($file_url): ?>
@@ -442,6 +464,25 @@ class Varle_Export_Admin {
         );
         echo '</select>';
         printf('<p class="description">%s</p>', esc_html__('Automatically regenerate XML when products are updated', 'varle-export'));
+    }
+    
+    public function error_notifications_callback() {
+        $settings = get_option('varle_export_settings');
+        $value = isset($settings['error_notifications']) ? $settings['error_notifications'] : 'no';
+        
+        echo '<select name="varle_export_settings[error_notifications]">';
+        printf(
+            '<option value="yes"%1$s>%2$s</option>',
+            selected($value, 'yes', false),
+            esc_html__('Yes', 'varle-export')
+        );
+        printf(
+            '<option value="no"%1$s>%2$s</option>',
+            selected($value, 'no', false),
+            esc_html__('No', 'varle-export')
+        );
+        echo '</select>';
+        printf('<p class="description">%s</p>', esc_html__('Send an email to the site admin when XML generation fails', 'varle-export'));
     }
     
     /**

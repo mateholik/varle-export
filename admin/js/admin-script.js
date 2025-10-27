@@ -71,9 +71,7 @@ jQuery(document).ready(function ($) {
         clearInterval(progressInterval);
 
         if (status === 'timeout') {
-          showError(
-            'Generation timed out. This may happen with large product catalogs. Please try again.'
-          );
+          showError(varle_ajax.timeout_notice_text);
         } else {
           showError(varle_ajax.error_text + ': ' + error);
         }
@@ -116,7 +114,7 @@ jQuery(document).ready(function ($) {
     form.submit();
     form.remove();
 
-    showNotification('Download started...', 'info');
+    showNotification(varle_ajax.download_started_text, 'info');
   }
 
   /**
@@ -126,7 +124,7 @@ jQuery(document).ready(function ($) {
     var $button = $('#test-accessibility');
     var originalText = $button.text();
 
-    $button.prop('disabled', true).text('Testing...');
+    $button.prop('disabled', true).text(varle_ajax.testing_text);
 
     $.ajax({
       url: varle_ajax.ajax_url,
@@ -137,9 +135,12 @@ jQuery(document).ready(function ($) {
       },
       success: function (response) {
         if (response.success) {
-          showNotification('✓ File is accessible!', 'success');
+          showNotification('✓ ' + varle_ajax.test_success_text, 'success');
         } else {
-          showNotification('✗ File not accessible: ' + response.data, 'error');
+          showNotification(
+            '✗ ' + varle_ajax.test_failure_text + ' ' + response.data,
+            'error'
+          );
         }
       },
       error: function () {
@@ -352,7 +353,7 @@ jQuery(document).ready(function ($) {
       $button.text(originalText).removeClass('varle-success');
     }, 2000);
 
-    showNotification('URL copied to clipboard!', 'success');
+    showNotification(varle_ajax.copy_success_text, 'success');
   }
 
   /**
@@ -373,38 +374,19 @@ jQuery(document).ready(function ($) {
       if (successful) {
         showCopySuccess($button);
       } else {
-        showNotification('Copy failed. Please copy manually: ' + text, 'error');
+        showNotification(
+          varle_ajax.copy_fail_text + ' ' + text,
+          'error'
+        );
       }
     } catch (err) {
       showNotification(
-        'Copy not supported. Please copy manually: ' + text,
+        varle_ajax.copy_unsupported_text + ' ' + text,
         'error'
       );
     }
 
     document.body.removeChild(textArea);
-  }
-
-  /**
-   * Auto-refresh storage diagnostics
-   */
-  function refreshStorageDiagnostics() {
-    var $diagnosticsTable = $('.wp-list-table tbody');
-    if ($diagnosticsTable.length === 0) return;
-
-    $.ajax({
-      url: varle_ajax.ajax_url,
-      type: 'POST',
-      data: {
-        action: 'varle_refresh_diagnostics',
-        nonce: varle_ajax.nonce,
-      },
-      success: function (response) {
-        if (response.success && response.data) {
-          $diagnosticsTable.html(response.data);
-        }
-      },
-    });
   }
 
   /**
@@ -446,7 +428,7 @@ jQuery(document).ready(function ($) {
         500
       );
 
-      showNotification('Please fix the form errors before saving', 'error');
+      showNotification(varle_ajax.form_error_text, 'error');
     }
   });
 
@@ -487,7 +469,9 @@ jQuery(document).ready(function ($) {
 
     // Show saving indicator
     $field.after(
-      '<span class="saving-indicator" style="color: #666; font-size: 11px; margin-left: 5px;">Saving...</span>'
+      '<span class="saving-indicator" style="color: #666; font-size: 11px; margin-left: 5px;">' +
+        varle_ajax.saving_text +
+        '</span>'
     );
 
     autoSaveTimeout = setTimeout(function () {
@@ -530,8 +514,6 @@ jQuery(document).ready(function ($) {
       }, 3000);
     }
 
-    // Refresh diagnostics every 30 seconds
-    setInterval(refreshStorageDiagnostics, 30000);
   }
 
   // Initialize when page loads
@@ -554,86 +536,7 @@ jQuery(document).ready(function ($) {
   // Add loading state for form submissions
   $('form').on('submit', function () {
     var $submitButton = $(this).find('input[type="submit"]');
-    $submitButton.prop('disabled', true).val('Saving...');
+    $submitButton.prop('disabled', true).val(varle_ajax.saving_text);
   });
 
-  // Real-time file size estimation
-  function estimateFileSize() {
-    if ($('#product-count').length === 0) return;
-
-    $.ajax({
-      url: varle_ajax.ajax_url,
-      type: 'POST',
-      data: {
-        action: 'varle_estimate_size',
-        nonce: varle_ajax.nonce,
-      },
-      success: function (response) {
-        if (response.success) {
-          var estimate = response.data;
-          $('#file-size-estimate').html(
-            '<p><strong>Estimated XML size:</strong> ' +
-              estimate.size +
-              ' (' +
-              estimate.products +
-              ' products)</p>'
-          );
-        }
-      },
-    });
-  }
-
-  // Call size estimation on page load
-  estimateFileSize();
-
-  /**
-   * Advanced error reporting
-   */
-  window.addEventListener('error', function (e) {
-    if (e.filename && e.filename.includes('varle-export')) {
-      console.error('Varle Export JavaScript Error:', e.error);
-
-      // Send error report to admin (optional)
-      if (varle_ajax.debug_mode) {
-        $.ajax({
-          url: varle_ajax.ajax_url,
-          type: 'POST',
-          data: {
-            action: 'varle_report_js_error',
-            error: e.error.toString(),
-            line: e.lineno,
-            file: e.filename,
-            nonce: varle_ajax.nonce,
-          },
-        });
-      }
-    }
-  });
-
-  /**
-   * Progressive enhancement for older browsers
-   */
-  function checkBrowserSupport() {
-    var warnings = [];
-
-    if (!window.fetch) {
-      warnings.push(
-        'Your browser is outdated. Some features may not work properly.'
-      );
-    }
-
-    if (!navigator.clipboard) {
-      warnings.push(
-        'Clipboard access not available. Copy buttons will use fallback method.'
-      );
-    }
-
-    if (warnings.length > 0) {
-      setTimeout(function () {
-        showNotification(warnings.join(' '), 'warning');
-      }, 2000);
-    }
-  }
-
-  checkBrowserSupport();
 });

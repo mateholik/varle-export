@@ -35,6 +35,8 @@ class Varle_Export_Cron {
         
         // Add custom cron schedules
         add_filter('cron_schedules', array($this, 'add_cron_interval'));
+        add_action('varle_force_xml_generation', array($this, 'force_generate_now'), 10, 1);
+        $this->handle_manual_cron();
         
         // Admin notices for debugging
         if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -372,15 +374,3 @@ class Varle_Export_Cron {
         $this->generate_xml();
     }
 }
-
-// Initialize manual cron handler
-add_action('init', function() {
-    $cron = new Varle_Export_Cron();
-    $cron->handle_manual_cron();
-});
-
-// Add action for immediate generation when needed
-add_action('varle_force_xml_generation', function($product_id = null) {
-    $cron = new Varle_Export_Cron();
-    $cron->force_generate_now($product_id);
-});

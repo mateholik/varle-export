@@ -187,8 +187,12 @@ class Varle_Export_XML_Generator {
      */
     private function store_in_database($xml_content) {
         try {
-            // Store XML content in database
-            update_option('varle_export_xml_content', $xml_content);
+            // Store XML content in database without autoloading
+            if (false === get_option('varle_export_xml_content', false)) {
+                add_option('varle_export_xml_content', $xml_content, '', 'no');
+            } else {
+                update_option('varle_export_xml_content', $xml_content);
+            }
             update_option('varle_export_xml_size', strlen($xml_content));
             update_option('varle_export_xml_generated', current_time('mysql'));
             
@@ -345,21 +349,9 @@ class Varle_Export_XML_Generator {
             $xml = new DOMDocument('1.0', 'UTF-8');
             $xml->formatOutput = true;
             
-            // Add comment
-            $xml->appendChild($xml->createComment(' Pastaba: kodavimas turi būti UTF-8 '));
-            
             // Create root element
             $root = $xml->createElement('root');
             $xml->appendChild($root);
-            
-            // Add script elements (as in Varle example)
-            for ($i = 0; $i < 3; $i++) {
-                $script = $xml->createElement('script');
-                if ($i === 0) {
-                    $script->setAttribute('id', 'eppiocemhmnlbhjplcgkofciiegomcon');
-                }
-                $root->appendChild($script);
-            }
             
             // Create products container
             $products = $xml->createElement('products');

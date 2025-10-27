@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: Varle.lt Product Export
- * Plugin URI: https://matesklubas.lt
+ * Plugin URI: https://vladis.lt
  * Description: Export WooCommerce products to Varle.lt XML format
  * Version: 1.0.0
  * Author: Vladis
- * Author URI: https://matesklubas.lt
+ * Author URI: https://vladis.lt
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: varle-export
@@ -111,7 +111,8 @@ class VarleExportPlugin {
             'default_group' => '0001',
             'manufacturer_attr' => 'pa_brand',
             'auto_generate' => 'yes',
-            'xml_file_name' => 'products.xml'
+            'xml_file_name' => 'products.xml',
+            'error_notifications' => 'no',
         ));
         
         // Schedule cron job

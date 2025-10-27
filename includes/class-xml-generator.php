@@ -8,12 +8,103 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+require_once ABSPATH . 'wp-admin/includes/file.php';
+
 class Varle_Export_XML_Generator {
     
     private $settings;
     
     public function __construct() {
         $this->settings = get_option('varle_export_settings', array());
+    }
+
+    /**
+     * Log helper using WooCommerce logger when available.
+     *
+     * @param string $level   Log level.
+     * @param string $message Message text.
+     */
+    private function log($level, $message) {
+        if (function_exists('wc_get_logger')) {
+            wc_get_logger()->log($level, $message, array('source' => 'varle-export'));
+        }
+    }
+
+    /**
+     * Retrieve WordPress filesystem abstraction instance.
+     *
+     * @return WP_Filesystem_Base|false
+     */
+    private function get_filesystem() {
+        global $wp_filesystem;
+
+        if (!isset($wp_filesystem) || ! $wp_filesystem) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+
+        return $wp_filesystem;
+    }
+
+    /**
+     * Write file contents via WP_Filesystem.
+     *
+     * @param string $path     Absolute file path.
+     * @param string $contents File contents.
+     * @return bool
+     */
+    private function write_file($path, $contents) {
+        $filesystem = $this->get_filesystem();
+
+        if (!$filesystem) {
+            return false;
+        }
+
+        $chmod = defined('FS_CHMOD_FILE') ? FS_CHMOD_FILE : 0644;
+
+        return (bool) $filesystem->put_contents($path, $contents, $chmod);
+    }
+
+    /**
+     * Ensure directory permissions allow writing.
+     *
+     * @param string $directory Directory path.
+     * @return bool
+     */
+    private function ensure_directory_writable($directory) {
+        if (wp_is_writable($directory)) {
+            return true;
+        }
+
+        $filesystem = $this->get_filesystem();
+        if (!$filesystem) {
+            return false;
+        }
+
+        $dir_chmod = defined('FS_CHMOD_DIR') ? FS_CHMOD_DIR : 0755;
+
+        if ($filesystem->chmod($directory, $dir_chmod)) {
+            return wp_is_writable($directory);
+        }
+
+        return false;
+    }
+
+    /**
+     * Apply secure permissions to generated files.
+     *
+     * @param string $path File path.
+     * @return void
+     */
+    private function set_file_permissions($path) {
+        $filesystem = $this->get_filesystem();
+
+        if (!$filesystem) {
+            return;
+        }
+
+        $chmod = defined('FS_CHMOD_FILE') ? FS_CHMOD_FILE : 0644;
+        $filesystem->chmod($path, $chmod);
     }
     
     /**
@@ -45,7 +136,7 @@ class Varle_Export_XML_Generator {
             throw new Exception('All storage methods failed');
             
         } catch (Exception $e) {
-            error_log('Varle XML generation failed: ' . $e->getMessage());
+            $this->log('error', 'Varle XML generation failed: ' . $e->getMessage());
             update_option('varle_export_last_error', $e->getMessage());
             return false;
         }
@@ -97,7 +188,7 @@ class Varle_Export_XML_Generator {
             
             $file_url = home_url('/wp-admin/admin-ajax.php?action=varle_serve_xml');
             
-            error_log('Varle XML stored in database successfully - Size: ' . strlen($xml_content) . ' bytes');
+            $this->log('info', 'Varle XML stored in database successfully - Size: ' . strlen($xml_content) . ' bytes');
             
             return array(
                 'path' => 'database',
@@ -106,7 +197,7 @@ class Varle_Export_XML_Generator {
             );
             
         } catch (Exception $e) {
-            error_log('Database storage failed: ' . $e->getMessage());
+            $this->log('error', 'Database storage failed: ' . $e->getMessage());
             return false;
         }
     }
@@ -137,25 +228,17 @@ class Varle_Export_XML_Generator {
                 if (!$mkdir_result) {
                     throw new Exception('Could not create varle-export directory: ' . $varle_dir);
                 }
-                error_log('Varle XML: Created directory ' . $varle_dir);
+                $this->log('info', 'Varle XML: Created directory ' . $varle_dir);
             }
             
             // Enhanced permission handling
-            if (!is_writable($varle_dir)) {
-                $chmod_result = @chmod($varle_dir, 0755);
-                if (!$chmod_result) {
-                    $chmod_result = @chmod($varle_dir, 0777);
-                }
-                
-                if (!is_writable($varle_dir)) {
-                    throw new Exception('Varle directory not writable after chmod attempts: ' . $varle_dir);
-                }
-                error_log('Varle XML: Fixed permissions for ' . $varle_dir);
+            if (!$this->ensure_directory_writable($varle_dir)) {
+                throw new Exception('Varle directory not writable: ' . $varle_dir);
             }
+            $this->log('info', 'Varle XML: Ensured writable permissions for ' . $varle_dir);
             
             // Write the file
-            $result = file_put_contents($file_path, $xml_content, LOCK_EX);
-            if ($result === false) {
+            if (!$this->write_file($file_path, $xml_content)) {
                 throw new Exception('Failed to write file to varle-export directory: ' . $file_path);
             }
             
@@ -164,24 +247,26 @@ class Varle_Export_XML_Generator {
                 throw new Exception('File was not created: ' . $file_path);
             }
             
-            $actual_size = filesize($file_path);
+            $actual_size = wp_filesize($file_path);
+            if (false === $actual_size) {
+                $actual_size = strlen($xml_content);
+            }
             if ($actual_size !== strlen($xml_content)) {
-                error_log('Varle XML: Size mismatch - expected ' . strlen($xml_content) . ', got ' . $actual_size);
+                $this->log('warning', 'Varle XML: Size mismatch - expected ' . strlen($xml_content) . ', got ' . $actual_size);
             }
             
-            // Set proper file permissions
-            @chmod($file_path, 0644);
+            $this->set_file_permissions($file_path);
             
-            error_log('Varle XML stored in varle-export directory successfully: ' . $file_path . ' (' . $result . ' bytes)');
+            $this->log('info', 'Varle XML stored in varle-export directory successfully: ' . $file_path . ' (' . $actual_size . ' bytes)');
             
             return array(
                 'path' => $file_path,
                 'url' => $file_url,
-                'size' => $result
+                'size' => $actual_size
             );
             
         } catch (Exception $e) {
-            error_log('Varle-export storage failed: ' . $e->getMessage());
+            $this->log('error', 'Varle-export storage failed: ' . $e->getMessage());
             return false;
         }
     }
@@ -195,27 +280,30 @@ class Varle_Export_XML_Generator {
             $file_path = ABSPATH . $filename;
             $file_url = home_url('/' . $filename);
             
-            if (!is_writable(ABSPATH)) {
+            if (!wp_is_writable(ABSPATH)) {
                 throw new Exception('Root directory not writable: ' . ABSPATH);
             }
             
-            $result = file_put_contents($file_path, $xml_content, LOCK_EX);
-            if ($result === false) {
+            if (!$this->write_file($file_path, $xml_content)) {
                 throw new Exception('Failed to write file to root directory');
             }
             
-            @chmod($file_path, 0644);
+            $this->set_file_permissions($file_path);
             
-            error_log('Varle XML stored in root directory: ' . $file_path . ' (' . $result . ' bytes)');
+            $written_size = wp_filesize($file_path);
+            if (false === $written_size) {
+                $written_size = strlen($xml_content);
+            }
+            $this->log('info', 'Varle XML stored in root directory: ' . $file_path . ' (' . $written_size . ' bytes)');
             
             return array(
                 'path' => $file_path,
                 'url' => $file_url,
-                'size' => $result
+                'size' => $written_size
             );
             
         } catch (Exception $e) {
-            error_log('Root storage failed: ' . $e->getMessage());
+            $this->log('error', 'Root storage failed: ' . $e->getMessage());
             return false;
         }
     }
@@ -233,7 +321,7 @@ class Varle_Export_XML_Generator {
         // Clear any previous errors
         delete_option('varle_export_last_error');
         
-        error_log('Varle XML generation successful using ' . $method . ' - URL: ' . $result['url'] . ' - Size: ' . $result['size'] . ' bytes');
+        $this->log('info', 'Varle XML generation successful using ' . $method . ' - URL: ' . $result['url'] . ' - Size: ' . $result['size'] . ' bytes');
     }
     
     /**
@@ -280,12 +368,12 @@ class Varle_Export_XML_Generator {
                 throw new Exception('Generated XML content is empty');
             }
             
-            error_log('Varle XML content generated successfully - ' . $product_count . ' products, ' . strlen($xml_content) . ' bytes');
+            $this->log('info', 'Varle XML content generated successfully - ' . $product_count . ' products, ' . strlen($xml_content) . ' bytes');
             
             return $xml_content;
             
         } catch (Exception $e) {
-            error_log('XML content generation failed: ' . $e->getMessage());
+            $this->log('error', 'XML content generation failed: ' . $e->getMessage());
             throw $e;
         }
     }
@@ -627,13 +715,14 @@ function varle_serve_xml_from_database() {
     
     if (empty($xml_content)) {
         status_header(404);
-        die('XML file not found');
+        exit(esc_html__('XML file not found', 'varle-export'));
     }
     
     header('Content-Type: application/xml; charset=utf-8');
     header('Content-Length: ' . strlen($xml_content));
     header('Cache-Control: public, max-age=3600');
     
+    // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Serving raw XML content.
     echo $xml_content;
     exit;
 }

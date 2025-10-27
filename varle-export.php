@@ -1,17 +1,17 @@
 <?php
 /**
- * Plugin Name: Varle.lt Product Export XML link
- * Plugin URI: https://matesklubas.lt
+ * Plugin Name: Varle.lt XML format
+ * Plugin URI: https://vladis.lt
  * Description: Export WooCommerce products to Varle.lt XML format
  * Version: 1.0.0
- * Author: Your Name
- * Author URI: https://matesklubas.lt
+ * Author: Vladis
+ * Author URI: https://vladis.lt
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: varle-export
  * Domain Path: /languages
  * Requires at least: 5.0
- * Tested up to: 6.3
+ * Tested up to: 6.8
  * Requires PHP: 7.4
  * WC requires at least: 5.0
  * WC tested up to: 8.0
@@ -73,8 +73,6 @@ class VarleExportPlugin {
         // Initialize components
         $this->init_components();
         
-        // Load text domain
-        load_plugin_textdomain('varle-export', false, dirname(plugin_basename(__FILE__)) . '/languages');
     }
     
     /**
@@ -148,10 +146,11 @@ class VarleExportPlugin {
      * WooCommerce missing notice
      */
     public function woocommerce_missing_notice() {
-        echo '<div class="notice notice-error"><p>';
-        echo '<strong>Varle.lt Export:</strong> ';
-        echo esc_html__('This plugin requires WooCommerce to be installed and active.', 'varle-export');
-        echo '</p></div>';
+        printf(
+            '<div class="notice notice-error"><p><strong>%s</strong> %s</p></div>',
+            esc_html__('Varle.lt Export:', 'varle-export'),
+            esc_html__('This plugin requires WooCommerce to be installed and active.', 'varle-export')
+        );
     }
     
     /**
@@ -159,21 +158,20 @@ class VarleExportPlugin {
      */
     public function handle_ajax_export() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'varle_export_nonce')) {
-            wp_die('Security check failed');
-        }
+        check_ajax_referer('varle_export_nonce', 'nonce');
         
         // Check permissions
         if (!current_user_can('manage_woocommerce')) {
-            wp_die('Insufficient permissions');
+            wp_die(esc_html__('Insufficient permissions', 'varle-export'));
         }
         
         $generator = new Varle_Export_XML_Generator();
         
         // Set headers for download
         header('Content-Type: application/xml; charset=utf-8');
-        header('Content-Disposition: attachment; filename="varle_products_' . date('Y-m-d') . '.xml"');
+        header('Content-Disposition: attachment; filename="varle_products_' . gmdate('Y-m-d') . '.xml"');
         
+        // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Intentionally returning raw XML content.
         echo $generator->generate_xml_content();
         wp_die();
     }
@@ -183,27 +181,24 @@ class VarleExportPlugin {
      */
     public function handle_ajax_generate() {
         // Verify nonce
-        if (!wp_verify_nonce($_POST['nonce'], 'varle_export_nonce')) {
-            wp_send_json_error('Security check failed');
-        }
+        check_ajax_referer('varle_export_nonce', 'nonce');
         
         // Check permissions
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error('Insufficient permissions');
+            wp_send_json_error(esc_html__('Insufficient permissions', 'varle-export'));
         }
         
         $generator = new Varle_Export_XML_Generator();
         $result = $generator->generate_xml_file();
         
         if ($result) {
-            $settings = get_option('varle_export_settings');
-            $file_url = home_url('/' . $settings['xml_file_name']);
+            $file_url = get_option('varle_export_file_url', '');
             wp_send_json_success(array(
-                'message' => 'XML file generated successfully!',
-                'file_url' => $file_url
+                'message' => esc_html__('XML file generated successfully!', 'varle-export'),
+                'file_url' => esc_url_raw($file_url)
             ));
         } else {
-            wp_send_json_error('Failed to generate XML file');
+            wp_send_json_error(esc_html__('Failed to generate XML file', 'varle-export'));
         }
     }
 }

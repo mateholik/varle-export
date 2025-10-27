@@ -162,19 +162,19 @@ jQuery(document).ready(function ($) {
     var html = '<div class="success-content">';
     html += '<h4>✓ ' + message + '</h4>';
 
-    if (fileUrl) {
-      html += '<p><strong>File URL:</strong> <code>' + fileUrl + '</code></p>';
-      html += '<p>';
-      html +=
-        '<a href="' +
-        fileUrl +
-        '" target="_blank" class="button">View XML</a> ';
-      html +=
-        '<button type="button" class="button copy-url-btn" data-url="' +
-        fileUrl +
-        '">Copy URL</button>';
-      html += '</p>';
-    }
+    // if (fileUrl) {
+    //   html += '<p><strong>File URL:</strong> <code>' + fileUrl + '</code></p>';
+    //   html += '<p>';
+    //   html +=
+    //     '<a href="' +
+    //     fileUrl +
+    //     '" target="_blank" class="button">View XML</a> ';
+    //   html +=
+    //     '<button type="button" class="button copy-url-btn" data-url="' +
+    //     fileUrl +
+    //     '">Copy URL</button>';
+    //   html += '</p>';
+    // }
 
     html += '</div>';
     $status.html(html);

@@ -41,6 +41,18 @@ class Varle_Export_Cron {
             add_action('admin_notices', array($this, 'debug_notices'));
         }
     }
+
+    /**
+     * Log message helper.
+     *
+     * @param string $level   Log level.
+     * @param string $message Log message.
+     */
+    private function log($level, $message) {
+        if (function_exists('wc_get_logger')) {
+            wc_get_logger()->log($level, $message, array('source' => 'varle-export'));
+        }
+    }
     
     /**
      * Add custom cron intervals
@@ -113,14 +125,13 @@ class Varle_Export_Cron {
         
         // Check if auto-generation is enabled
         if (!isset($settings['auto_generate']) || $settings['auto_generate'] !== 'yes') {
-            error_log('Varle XML auto-generation is disabled');
+            $this->log('notice', 'Varle XML auto-generation is disabled');
             return;
         }
         
         // Log the trigger for debugging
         if (defined('WP_DEBUG') && WP_DEBUG) {
-            $backtrace = wp_debug_backtrace_summary();
-            error_log('Varle XML generation triggered by: ' . $backtrace . ' for product ID: ' . $product_id);
+            $this->log('debug', 'Varle XML generation triggered by hook: ' . current_filter() . ' for product ID: ' . $product_id);
         }
         
         // Clear any existing scheduled generation to prevent duplicates
@@ -130,11 +141,11 @@ class Varle_Export_Cron {
         $scheduled = wp_schedule_single_event(time() + 60, 'varle_export_delayed');
         
         if ($scheduled === false) {
-            error_log('Varle XML: Failed to schedule delayed generation');
+            $this->log('error', 'Varle XML: Failed to schedule delayed generation');
             // Fallback: generate immediately
             $this->generate_xml();
         } else {
-            error_log('Varle XML: Scheduled delayed generation for 1 minute from now');
+            $this->log('info', 'Varle XML: Scheduled delayed generation for 1 minute from now');
             update_option('varle_export_generation_scheduled', current_time('mysql'));
         }
     }
@@ -144,11 +155,12 @@ class Varle_Export_Cron {
      */
     public function generate_xml() {
         // Prevent memory issues
-        ini_set('memory_limit', '512M');
-        set_time_limit(300); // 5 minutes
+        if (function_exists('wp_raise_memory_limit')) {
+            wp_raise_memory_limit('admin');
+        }
         
         // Log start of generation
-        error_log('Varle XML: Starting generation at ' . current_time('Y-m-d H:i:s'));
+        $this->log('info', 'Varle XML: Starting generation at ' . current_time('Y-m-d H:i:s'));
         
         try {
             $generator = new Varle_Export_XML_Generator();
@@ -156,15 +168,15 @@ class Varle_Export_Cron {
             
             if ($result) {
                 $this->log_success();
-                error_log('Varle XML: Generation completed successfully');
+                $this->log('info', 'Varle XML: Generation completed successfully');
             } else {
                 $this->log_error('XML generation returned false');
-                error_log('Varle XML: Generation failed - returned false');
+                $this->log('error', 'Varle XML: Generation failed - returned false');
             }
             
         } catch (Exception $e) {
             $this->log_error('XML generation exception: ' . $e->getMessage());
-            error_log('Varle XML: Generation failed with exception - ' . $e->getMessage());
+            $this->log('error', 'Varle XML: Generation failed with exception - ' . $e->getMessage());
         }
         
         // Clear the scheduled flag
@@ -195,7 +207,7 @@ class Varle_Export_Cron {
         update_option('varle_export_last_error', $message);
         
         // Log to WordPress error log
-        error_log('Varle Export Error: ' . $message);
+        $this->log('error', 'Varle Export Error: ' . $message);
         
         // Send email notification if configured
         $this->maybe_send_error_notification($message);
@@ -212,10 +224,12 @@ class Varle_Export_Cron {
         }
         
         $admin_email = get_option('admin_email');
+        /* translators: %s: website name. */
         $subject = sprintf(__('[%s] Varle Export Error', 'varle-export'), get_bloginfo('name'));
         
+        /* translators: 1: error message, 2: generation time. */
         $body = sprintf(
-            __("There was an error generating the Varle.lt XML export:\n\n%s\n\nTime: %s\n\nPlease check your website and resolve the issue.", 'varle-export'),
+            __("There was an error generating the Varle.lt XML export:\n\n%1\$s\n\nTime: %2\$s\n\nPlease check your website and resolve the issue.", 'varle-export'),
             $message,
             current_time('Y-m-d H:i:s')
         );
@@ -275,7 +289,17 @@ class Varle_Export_Cron {
         $scheduled = get_option('varle_export_generation_scheduled');
         if ($scheduled) {
             echo '<div class="notice notice-info is-dismissible">';
-            echo '<p><strong>Varle Export Debug:</strong> XML generation scheduled at ' . $scheduled . '</p>';
+            printf(
+                '<p><strong>%s</strong> %s</p>',
+                esc_html__('Varle Export Debug:', 'varle-export'),
+                esc_html(
+                    sprintf(
+                        /* translators: %s: scheduled time. */
+                        __('XML generation scheduled at %s', 'varle-export'),
+                        $scheduled
+                    )
+                )
+            );
             echo '</div>';
         }
         
@@ -286,7 +310,17 @@ class Varle_Export_Cron {
             $time_diff = current_time('timestamp') - strtotime($last_run);
             if ($time_diff < 300) { // Less than 5 minutes ago
                 echo '<div class="notice notice-success is-dismissible">';
-                echo '<p><strong>Varle Export:</strong> XML was regenerated ' . human_time_diff(strtotime($last_run)) . ' ago</p>';
+                printf(
+                    '<p><strong>%s</strong> %s</p>',
+                    esc_html__('Varle Export:', 'varle-export'),
+                    esc_html(
+                        sprintf(
+                            /* translators: %s: human readable time difference. */
+                            __('XML was regenerated %s ago', 'varle-export'),
+                            human_time_diff(strtotime($last_run))
+                        )
+                    )
+                );
                 echo '</div>';
             }
         }
@@ -313,12 +347,21 @@ class Varle_Export_Cron {
         }
         
         if (!isset($_GET['key']) || $_GET['key'] !== wp_hash('varle_manual_cron' . NONCE_SALT)) {
-            wp_die('Invalid key');
+            wp_die(esc_html__('Invalid key', 'varle-export'));
         }
         
         $this->generate_xml();
         
-        echo 'Varle XML generation completed at ' . current_time('Y-m-d H:i:s');
+        printf(
+            '%s',
+            esc_html(
+                /* translators: %s: generation time. */
+                sprintf(
+                    __('Varle XML generation completed at %s', 'varle-export'),
+                    current_time('Y-m-d H:i:s')
+                )
+            )
+        );
         exit;
     }
     
@@ -326,7 +369,7 @@ class Varle_Export_Cron {
      * Force immediate XML generation (for testing)
      */
     public function force_generate_now($product_id = null) {
-        error_log('Varle XML: Force generation triggered for product ' . $product_id);
+        $this->log('notice', 'Varle XML: Force generation triggered for product ' . $product_id);
         $this->generate_xml();
     }
 }

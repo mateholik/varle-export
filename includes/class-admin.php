@@ -41,7 +41,7 @@ class Varle_Export_Admin {
      * Initialize admin settings
      */
     public function admin_init() {
-        register_setting('varle_export_settings', 'varle_export_settings');
+        register_setting('varle_export_settings', 'varle_export_settings', array($this, 'sanitize_settings'));
         
         add_settings_section(
             'varle_export_general',
@@ -89,6 +89,50 @@ class Varle_Export_Admin {
             'varle_export_settings',
             'varle_export_general'
         );
+    }
+
+    /**
+     * Sanitize settings before saving.
+     *
+     * @param array $input Raw settings input.
+     * @return array
+     */
+    public function sanitize_settings($input) {
+        $sanitized = array();
+
+        if (!is_array($input)) {
+            return $sanitized;
+        }
+
+        if (isset($input['delivery_text'])) {
+            $sanitized['delivery_text'] = sanitize_text_field(wp_unslash($input['delivery_text']));
+        }
+
+        if (isset($input['default_group'])) {
+            $sanitized['default_group'] = sanitize_text_field(wp_unslash($input['default_group']));
+        }
+
+        if (isset($input['manufacturer_attr'])) {
+            $sanitized['manufacturer_attr'] = sanitize_key(wp_unslash($input['manufacturer_attr']));
+        }
+
+        if (isset($input['xml_file_name'])) {
+            $sanitized['xml_file_name'] = sanitize_file_name(wp_unslash($input['xml_file_name']));
+        }
+
+        if (isset($input['auto_generate']) && 'no' === wp_unslash($input['auto_generate'])) {
+            $sanitized['auto_generate'] = 'no';
+        } else {
+            $sanitized['auto_generate'] = 'yes';
+        }
+
+        if (isset($input['error_notifications']) && 'yes' === wp_unslash($input['error_notifications'])) {
+            $sanitized['error_notifications'] = 'yes';
+        } else {
+            $sanitized['error_notifications'] = 'no';
+        }
+
+        return $sanitized;
     }
     
     /**
@@ -145,33 +189,33 @@ class Varle_Export_Admin {
                 
                 <!-- File Status -->
                 <div class="postbox">
-                    <h2 class="hndle"><?php _e('File Status', 'varle-export'); ?></h2>
+                    <h2 class="hndle"><?php esc_html_e('File Status', 'varle-export'); ?></h2>
                     <div class="inside">
                         <?php if ($file_url): ?>
                             <div class="varle-status-info">
-                                <p><strong><?php _e('Current XML File:', 'varle-export'); ?></strong></p>
+                                <p><strong><?php esc_html_e('Current XML File:', 'varle-export'); ?></strong></p>
                                 <code><?php echo esc_url($file_url); ?></code>
                                 <button type="button" class="button-small copy-url-btn" data-url="<?php echo esc_url($file_url); ?>">
-                                    <?php _e('Copy URL', 'varle-export'); ?>
+                                    <?php esc_html_e('Copy URL', 'varle-export'); ?>
                                 </button>
                                 
-                                <p><strong><?php _e('Storage Method:', 'varle-export'); ?></strong> 
-                                    <?php echo $this->get_storage_method_display($storage_method); ?>
+                                <p><strong><?php esc_html_e('Storage Method:', 'varle-export'); ?></strong> 
+                                    <?php echo esc_html($this->get_storage_method_display($storage_method)); ?>
                                 </p>
                                 
                                 <?php if ($last_generated): ?>
-                                <p><strong><?php _e('Last Generated:', 'varle-export'); ?></strong> 
-                                    <?php echo date('Y-m-d H:i:s', strtotime($last_generated)); ?>
+                                <p><strong><?php esc_html_e('Last Generated:', 'varle-export'); ?></strong> 
+                                    <?php echo esc_html(mysql2date('Y-m-d H:i:s', $last_generated)); ?>
                                 </p>
                                 <?php endif; ?>
                             </div>
                         <?php else: ?>
-                            <p class="no-file-notice"><?php _e('No XML file generated yet.', 'varle-export'); ?></p>
+                            <p class="no-file-notice"><?php esc_html_e('No XML file generated yet.', 'varle-export'); ?></p>
                         <?php endif; ?>
                         
                         <?php if ($last_error): ?>
                             <div class="error-notice">
-                                <p><strong><?php _e('Last Error:', 'varle-export'); ?></strong></p>
+                                <p><strong><?php esc_html_e('Last Error:', 'varle-export'); ?></strong></p>
                                 <p><code><?php echo esc_html($last_error); ?></code></p>
                             </div>
                         <?php endif; ?>
@@ -180,22 +224,22 @@ class Varle_Export_Admin {
                 
                 <!-- Export Actions -->
                 <div class="postbox">
-                    <h2 class="hndle"><?php _e('Export Actions', 'varle-export'); ?></h2>
+                    <h2 class="hndle"><?php esc_html_e('Export Actions', 'varle-export'); ?></h2>
                     <div class="inside">
-                        <p><?php _e('Generate XML file for Varle.lt product import.', 'varle-export'); ?></p>
+                        <p><?php esc_html_e('Generate XML file for Varle.lt product import.', 'varle-export'); ?></p>
                         
                         <div class="varle-actions">
                             <button type="button" id="generate-xml" class="button button-primary">
-                                <?php _e('Regenerate XML File', 'varle-export'); ?>
+                                <?php esc_html_e('Regenerate XML File', 'varle-export'); ?>
                             </button>
                             
                             <button type="button" id="download-xml" class="button">
-                                <?php _e('Download XML', 'varle-export'); ?>
+                                <?php esc_html_e('Download XML', 'varle-export'); ?>
                             </button>
                             
                             <?php if ($file_url): ?>
                             <button type="button" id="view-xml" class="button" onclick="window.open('<?php echo esc_url($file_url); ?>', '_blank')">
-                                <?php _e('View XML', 'varle-export'); ?>
+                                <?php esc_html_e('View XML', 'varle-export'); ?>
                             </button>
                             <?php endif; ?>
                         </div>
@@ -206,16 +250,16 @@ class Varle_Export_Admin {
                 
                 <!-- Storage Diagnostics -->
                 <div class="postbox">
-                    <h2 class="hndle"><?php _e('Storage Diagnostics', 'varle-export'); ?></h2>
+                    <h2 class="hndle"><?php esc_html_e('Storage Diagnostics', 'varle-export'); ?></h2>
                     <div class="inside">
-                        <p><?php _e('Available storage methods on your hosting environment:', 'varle-export'); ?></p>
+                        <p><?php esc_html_e('Available storage methods on your hosting environment:', 'varle-export'); ?></p>
                         
                         <table class="wp-list-table widefat fixed striped">
                             <thead>
                                 <tr>
-                                    <th><?php _e('Storage Method', 'varle-export'); ?></th>
-                                    <th><?php _e('Status', 'varle-export'); ?></th>
-                                    <th><?php _e('Description', 'varle-export'); ?></th>
+                                    <th><?php esc_html_e('Storage Method', 'varle-export'); ?></th>
+                                    <th><?php esc_html_e('Status', 'varle-export'); ?></th>
+                                    <th><?php esc_html_e('Description', 'varle-export'); ?></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -227,7 +271,7 @@ class Varle_Export_Admin {
                 
                 <!-- Settings -->
                 <div class="postbox">
-                    <h2 class="hndle"><?php _e('Settings', 'varle-export'); ?></h2>
+                    <h2 class="hndle"><?php esc_html_e('Settings', 'varle-export'); ?></h2>
                     <div class="inside">
                         <form method="post" action="options.php">
                             <?php
@@ -241,13 +285,13 @@ class Varle_Export_Admin {
                 
                 <!-- Instructions -->
                 <div class="postbox">
-                    <h2 class="hndle"><?php _e('Instructions', 'varle-export'); ?></h2>
+                    <h2 class="hndle"><?php esc_html_e('Instructions', 'varle-export'); ?></h2>
                     <div class="inside">
                         <ol>
-                            <li><?php _e('Configure the settings above.', 'varle-export'); ?></li>
-                            <li><?php _e('Click "Regenerate XML File" to create the export file.', 'varle-export'); ?></li>
-                            <li><?php _e('Copy the XML file URL from the File Status section.', 'varle-export'); ?></li>
-                            <li><?php _e('Provide this URL to Varle.lt in their import system.', 'varle-export'); ?></li>
+                            <li><?php esc_html_e('Configure the settings above.', 'varle-export'); ?></li>
+                            <li><?php esc_html_e('Click "Regenerate XML File" to create the export file.', 'varle-export'); ?></li>
+                            <li><?php esc_html_e('Copy the XML file URL from the File Status section.', 'varle-export'); ?></li>
+                            <li><?php esc_html_e('Provide this URL to Varle.lt in their import system.', 'varle-export'); ?></li>
                         </ol>
                         
                         <?php 
@@ -255,8 +299,8 @@ class Varle_Export_Admin {
                         if ($auto_generate === 'yes'): 
                         ?>
                         <div class="notice notice-info inline">
-                            <p><strong><?php _e('Auto-Generation Enabled:', 'varle-export'); ?></strong> 
-                            <?php _e('XML file will be automatically updated when products are added, modified, or stock changes.', 'varle-export'); ?></p>
+                            <p><strong><?php esc_html_e('Auto-Generation Enabled:', 'varle-export'); ?></strong> 
+                            <?php esc_html_e('XML file will be automatically updated when products are added, modified, or stock changes.', 'varle-export'); ?></p>
                         </div>
                         <?php endif; ?>
                     </div>
@@ -294,19 +338,19 @@ class Varle_Export_Admin {
             array(
                 'name' => __('WordPress Uploads Directory', 'varle-export'),
                 'path' => $upload_dir['basedir'] . '/varle-export/' . $filename,
-                'writable' => !$upload_dir['error'] && is_writable($upload_dir['basedir']),
+                'writable' => !$upload_dir['error'] && wp_is_writable($upload_dir['basedir']),
                 'description' => __('Most reliable method (Recommended)', 'varle-export')
             ),
             array(
                 'name' => __('Plugin Directory', 'varle-export'),
                 'path' => VARLE_EXPORT_PLUGIN_PATH . $filename,
-                'writable' => is_writable(VARLE_EXPORT_PLUGIN_PATH),
+                'writable' => wp_is_writable(VARLE_EXPORT_PLUGIN_PATH),
                 'description' => __('Works if publicly accessible', 'varle-export')
             ),
             array(
                 'name' => __('WordPress Root Directory', 'varle-export'),
                 'path' => ABSPATH . $filename,
-                'writable' => is_writable(ABSPATH),
+                'writable' => wp_is_writable(ABSPATH),
                 'description' => __('Clean URLs but often blocked', 'varle-export')
             ),
             array(
@@ -319,12 +363,16 @@ class Varle_Export_Admin {
         
         foreach ($diagnostics as $diagnostic) {
             $status_class = $diagnostic['writable'] ? 'available' : 'unavailable';
-            $status_text = $diagnostic['writable'] ? '✓ Available' : '✗ Not Available';
+            $status_text = $diagnostic['writable'] ? esc_html__('✓ Available', 'varle-export') : esc_html__('✗ Not Available', 'varle-export');
             
             echo '<tr>';
             echo '<td><strong>' . esc_html($diagnostic['name']) . '</strong><br>';
             echo '<small><code>' . esc_html($diagnostic['path']) . '</code></small></td>';
-            echo '<td><span class="status-' . $status_class . '">' . $status_text . '</span></td>';
+            printf(
+                '<td><span class="status-%s">%s</span></td>',
+                esc_attr($status_class),
+                $status_text
+            );
             echo '<td>' . esc_html($diagnostic['description']) . '</td>';
             echo '</tr>';
         }
@@ -334,21 +382,21 @@ class Varle_Export_Admin {
      * Settings callbacks
      */
     public function general_section_callback() {
-        echo '<p>' . __('Configure the general settings for Varle.lt export.', 'varle-export') . '</p>';
+        printf('<p>%s</p>', esc_html__('Configure the general settings for Varle.lt export.', 'varle-export'));
     }
     
     public function delivery_text_callback() {
         $settings = get_option('varle_export_settings');
         $value = isset($settings['delivery_text']) ? $settings['delivery_text'] : '2-3 d. d.';
         echo '<input type="text" name="varle_export_settings[delivery_text]" value="' . esc_attr($value) . '" />';
-        echo '<p class="description">' . __('Default delivery time for all products', 'varle-export') . '</p>';
+        printf('<p class="description">%s</p>', esc_html__('Default delivery time for all products', 'varle-export'));
     }
     
     public function default_group_callback() {
         $settings = get_option('varle_export_settings');
         $value = isset($settings['default_group']) ? $settings['default_group'] : '0001';
         echo '<input type="text" name="varle_export_settings[default_group]" value="' . esc_attr($value) . '" />';
-        echo '<p class="description">' . __('Default group ID for products', 'varle-export') . '</p>';
+        printf('<p class="description">%s</p>', esc_html__('Default group ID for products', 'varle-export'));
     }
     
     public function manufacturer_attr_callback() {
@@ -356,24 +404,29 @@ class Varle_Export_Admin {
         $value = isset($settings['manufacturer_attr']) ? $settings['manufacturer_attr'] : 'pa_brand';
         
         echo '<select name="varle_export_settings[manufacturer_attr]">';
-        echo '<option value="">' . __('Select attribute...', 'varle-export') . '</option>';
+        printf('<option value="">%s</option>', esc_html__('Select attribute...', 'varle-export'));
         
         $attributes = wc_get_attribute_taxonomies();
         foreach ($attributes as $attribute) {
             $attr_name = 'pa_' . $attribute->attribute_name;
             $selected = selected($value, $attr_name, false);
-            echo '<option value="' . esc_attr($attr_name) . '" ' . $selected . '>' . esc_html($attribute->attribute_label) . '</option>';
+            printf(
+                '<option value="%1$s" %2$s>%3$s</option>',
+                esc_attr($attr_name),
+                $selected,
+                esc_html($attribute->attribute_label)
+            );
         }
         
         echo '</select>';
-        echo '<p class="description">' . __('Product attribute to use as manufacturer', 'varle-export') . '</p>';
+        printf('<p class="description">%s</p>', esc_html__('Product attribute to use as manufacturer', 'varle-export'));
     }
     
     public function xml_file_name_callback() {
         $settings = get_option('varle_export_settings');
         $value = isset($settings['xml_file_name']) ? $settings['xml_file_name'] : 'products.xml';
         echo '<input type="text" name="varle_export_settings[xml_file_name]" value="' . esc_attr($value) . '" />';
-        echo '<p class="description">' . __('Name of the XML file', 'varle-export') . '</p>';
+        printf('<p class="description">%s</p>', esc_html__('Name of the XML file', 'varle-export'));
     }
     
     public function auto_generate_callback() {
@@ -381,10 +434,18 @@ class Varle_Export_Admin {
         $value = isset($settings['auto_generate']) ? $settings['auto_generate'] : 'yes';
         
         echo '<select name="varle_export_settings[auto_generate]">';
-        echo '<option value="yes"' . selected($value, 'yes', false) . '>' . __('Yes', 'varle-export') . '</option>';
-        echo '<option value="no"' . selected($value, 'no', false) . '>' . __('No', 'varle-export') . '</option>';
+        printf(
+            '<option value="yes"%1$s>%2$s</option>',
+            selected($value, 'yes', false),
+            esc_html__('Yes', 'varle-export')
+        );
+        printf(
+            '<option value="no"%1$s>%2$s</option>',
+            selected($value, 'no', false),
+            esc_html__('No', 'varle-export')
+        );
         echo '</select>';
-        echo '<p class="description">' . __('Automatically regenerate XML when products are updated', 'varle-export') . '</p>';
+        printf('<p class="description">%s</p>', esc_html__('Automatically regenerate XML when products are updated', 'varle-export'));
     }
     
     /**
@@ -392,40 +453,40 @@ class Varle_Export_Admin {
      */
     public function add_product_fields() {
         echo '<div class="options_group">';
-        echo '<h4>' . __('Varle.lt Settings', 'varle-export') . '</h4>';
+        echo '<h4>' . esc_html__('Varle.lt Settings', 'varle-export') . '</h4>';
         
         woocommerce_wp_text_input(array(
             'id' => '_varle_group',
-            'label' => __('Varle Group ID', 'varle-export'),
-            'description' => __('Product group identifier for Varle.lt', 'varle-export'),
+            'label' => esc_html__('Varle Group ID', 'varle-export'),
+            'description' => esc_html__('Product group identifier for Varle.lt', 'varle-export'),
             'desc_tip' => true,
         ));
         
         woocommerce_wp_text_input(array(
             'id' => '_varle_delivery_text',
-            'label' => __('Delivery Text', 'varle-export'),
-            'description' => __('Custom delivery text for this product', 'varle-export'),
+            'label' => esc_html__('Delivery Text', 'varle-export'),
+            'description' => esc_html__('Custom delivery text for this product', 'varle-export'),
             'desc_tip' => true,
         ));
         
         woocommerce_wp_text_input(array(
             'id' => '_varle_warranty',
-            'label' => __('Warranty (months)', 'varle-export'),
-            'description' => __('Warranty period in months', 'varle-export'),
+            'label' => esc_html__('Warranty (months)', 'varle-export'),
+            'description' => esc_html__('Warranty period in months', 'varle-export'),
             'desc_tip' => true,
             'type' => 'number'
         ));
         
         woocommerce_wp_checkbox(array(
             'id' => '_varle_with_gift',
-            'label' => __('Product with Gift', 'varle-export'),
-            'description' => __('Check if this product comes with a gift', 'varle-export')
+            'label' => esc_html__('Product with Gift', 'varle-export'),
+            'description' => esc_html__('Check if this product comes with a gift', 'varle-export')
         ));
         
         woocommerce_wp_checkbox(array(
             'id' => '_varle_exclude',
-            'label' => __('Exclude from Varle Export', 'varle-export'),
-            'description' => __('Check to exclude this product from Varle.lt export', 'varle-export')
+            'label' => esc_html__('Exclude from Varle Export', 'varle-export'),
+            'description' => esc_html__('Check to exclude this product from Varle.lt export', 'varle-export')
         ));
         
         echo '</div>';
@@ -435,11 +496,21 @@ class Varle_Export_Admin {
      * Save product fields
      */
     public function save_product_fields($post_id) {
+        if (!isset($_POST['woocommerce_meta_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['woocommerce_meta_nonce'])), 'woocommerce_save_data')) {
+            return;
+        }
+
         $fields = array('_varle_group', '_varle_delivery_text', '_varle_warranty', '_varle_with_gift', '_varle_exclude');
         
         foreach ($fields as $field) {
             if (isset($_POST[$field])) {
-                update_post_meta($post_id, $field, sanitize_text_field($_POST[$field]));
+                $value = wp_unslash($_POST[$field]);
+                if (is_array($value)) {
+                    $value = array_map('sanitize_text_field', $value);
+                } else {
+                    $value = sanitize_text_field($value);
+                }
+                update_post_meta($post_id, $field, $value);
             } else {
                 delete_post_meta($post_id, $field);
             }
@@ -450,32 +521,40 @@ class Varle_Export_Admin {
      * AJAX handler for testing file accessibility
      */
     public function test_file_accessibility() {
-        if (!wp_verify_nonce($_POST['nonce'], 'varle_export_nonce')) {
-            wp_send_json_error('Security check failed');
-        }
+        check_ajax_referer('varle_export_nonce', 'nonce');
         
         if (!current_user_can('manage_woocommerce')) {
-            wp_send_json_error('Insufficient permissions');
+            wp_send_json_error(esc_html__('Insufficient permissions', 'varle-export'));
         }
         
         $file_url = get_option('varle_export_file_url', '');
         
         if (empty($file_url)) {
-            wp_send_json_error('No XML file generated yet');
+            wp_send_json_error(esc_html__('No XML file generated yet', 'varle-export'));
         }
         
         $response = wp_remote_get($file_url, array('timeout' => 10));
         
         if (is_wp_error($response)) {
-            wp_send_json_error('URL not accessible: ' . $response->get_error_message());
+            wp_send_json_error(
+                sprintf(
+                    esc_html__('URL not accessible: %s', 'varle-export'),
+                    esc_html($response->get_error_message())
+                )
+            );
         }
         
         $response_code = wp_remote_retrieve_response_code($response);
         if ($response_code === 200) {
-            wp_send_json_success('File is publicly accessible');
-        } else {
-            wp_send_json_error('URL returned HTTP ' . $response_code);
+            wp_send_json_success(esc_html__('File is publicly accessible', 'varle-export'));
         }
+
+        wp_send_json_error(
+            sprintf(
+                esc_html__('URL returned HTTP %d', 'varle-export'),
+                (int) $response_code
+            )
+        );
     }
 }
 ?>
